@@ -7,9 +7,7 @@ COPY package*.json ./
 RUN npm install
 # Build app
 COPY . .
-# RUN npx prisma generate
-RUN npx prisma db push
-
+RUN npx prisma generate
 RUN npm run build
 # Expose port
 EXPOSE 8080
