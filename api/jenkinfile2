@@ -1,0 +1,57 @@
+pipeline {
+    agent {
+        node {
+            label 'docker'
+        }
+    }
+    environment {
+        dockerhub = credentials('dockerhub')
+        scannerHome = tool 'SonarQube Scanner' // SonarQube Scanner tool name
+    }
+    stages {
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube Server') { // SonarQube server name
+                    sh '${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=backend \
+                        -Dsonar.sources=api \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.login=$SONAR_AUTH_TOKEN'
+                }
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                sh 'cd api && docker build -t akhilvodnala/backend .'
+            }
+        }
+        stage('Docker Login') {
+            steps {
+                sh 'echo $dockerhub_PSW | docker login -u $dockerhub_USR --password-stdin'
+            }
+        }
+        stage('Docker Push') {
+            steps {
+                sh 'docker push akhilvodnala/backend'
+                sh 'docker container run -dt --name api -p 3000:3000 akhilvodnala/backend'
+            }
+        }
+        stage('Remove old docker images') {
+            steps {
+                sh 'docker rmi -f akhilvodnala/backend'
+            }
+        }
+        stage('Creating database container') {
+            steps {
+                sh 'docker container rm --force lmsdb'
+                sh 'docker run -d -p 5432:5432 --network lmsnetwork -e POSTGRES_PASSWORD=password --name lmsdb postgres'
+            }
+        }
+        stage('Running the docker container') {
+            steps {
+                sh 'docker container rm --force api'
+                sh 'docker run -d -p 3000:3000 --network lmsnetwork -e DATABASE_URL=postgresql://postgres:password@lmsdb:5432/postgres --name api -e PORT=3000 -e MODE=local akhilvodnala/backend'
+            }
+        }
+    }
+}
