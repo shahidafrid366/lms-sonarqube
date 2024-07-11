@@ -5,7 +5,7 @@ pipeline {
          }
         }
     environment {
-    dockerhub=credentials('docker_hub')
+    dockerhub=credentials('dockerhub')
     }
     stages{
         stage('Docker Build') {
